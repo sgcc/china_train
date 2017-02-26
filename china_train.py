@@ -2,7 +2,7 @@
 import sqlite3
 import sys
 
-from api.Train12306Api import Train12306Api
+
 from model.TrainModel import  TrainModel
 from Station import Station
 from Trains import Trains
@@ -24,14 +24,16 @@ class ChinaTrain:
     def initStation(self):
         self.station = Station(self.appPath)
         # self.station.station2DB()
-        self.station.stationLocation2DB()
+        #self.station.stationLocation2DB()
+        #self.station.stationLocation2DBByfile()
 
     def initTrain(self):
-        self.t = Trains(self.appPath,self.station.stationName2Id)
+        self.t = Trains(self.appPath,self.station.stationName2Id,self.appPath)
+        #self.t.toDB()
 
 
 if __name__ == '__main__':
-        dbpath = 'D:\\work2017\\china_train'
+        dbpath = '/Users/yy/Documents/work2017/china_train'
 
         #初始化数据库
         ct = ChinaTrain(dbpath)
@@ -40,33 +42,12 @@ if __name__ == '__main__':
         #初始化车站
         ct.initStation()
 
+        #to json
+        saveJsonPath = '/Users/yy/Documents/work2017/china_train/file/trainStation.json'
+        ct.station.station_to_json(saveJsonPath)
+
         # 初始化车次
         ct.initTrain()
 
-# conn = sqlite3.connect('D:/work2017/12306/data/trainModel/t12306.db')
-# conn.text_factory = str
-#
-# paths = 'D:/work2017/12306/files/station_name.js'
-# s = Station(paths)
-#
-# paths = 'D:/work2017/12306/files/train_list.js'
-# t = Trains(paths,s.stationName2Id)
-#
-# cur = conn.cursor()
-# amap = Train12306Api()
-# for i in t.trainsKey:
-#     baseT,trainPath = amap.getTrainInfo(i[0],i[1],i[2])
-#     if len(baseT)==0:
-#         continue
-#
-#     cur.execute("INSERT INTO train VALUES ( ?,?,?,?,?,?)", baseT)
-#     cur.executemany("INSERT INTO train_station VALUES ( ?,?,?,?,?,?,?)", trainPath)
-#     conn.commit()
-# cur.close()
 
-
-
-
-# saveJsonPath = 'D:/work2017/12306/files/channels.json'
-# t.channel_to_json(saveJsonPath)
 

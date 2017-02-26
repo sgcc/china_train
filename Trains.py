@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 import sys,time,re,json
 import codecs,csv
+import requests
+import sqlite3
+from api.Train12306Api import Train12306Api
 
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
 
 class Trains:
-    def __init__(self,filePath,stationName2Id):
+    def __init__(self,filePath,stationName2Id,dataPath):
+
+        self.conn = sqlite3.connect(dataPath + '/model/chinaTrain.db')
+        self.conn.text_factory = str
 
         self.stationName2Id = stationName2Id
 
@@ -17,12 +23,10 @@ class Trains:
 
         self.errorTrains=[] # name to acronym error
 
-        f = open(filePath,'r')
-        try:
-            b1 = f.read()
-            bf = b1[b1.find('=')+1:]
-        finally:
-            f.close()
+        Url_trainInfo = 'https://kyfw.12306.cn/otn/resources/js/query/train_list.js?scriptVersion=1.0'
+        r = requests.get(Url_trainInfo, verify=False).text
+
+        bf = r[r.find('=')+1:]
 
         trainsMap = {}
         json_dic1 = json.loads(bf)
@@ -31,8 +35,8 @@ class Trains:
                 for t in json_dic1[s][rq]:
                     codes,stations = t['station_train_code'].split("(")
                     beginS,endS = stations.split("-")
-                    self.stationNames.append([t['train_no'],codes, beginS,endS[:len(endS)-1] ])
-                    trainsMap[t['train_no']] = [t['train_no'],codes,beginS,endS[:len(endS)-1]]
+                    self.stationNames.append([t['train_no'],codes, beginS.replace(' ','').strip(),endS[:len(endS)-1].replace(' ','').strip() ])
+                    trainsMap[t['train_no']] = [t['train_no'],codes,beginS.replace(' ','').strip(),endS[:len(endS)-1].replace(' ','').strip()]
 
         #车次|首发站|终点站
         for key, value in trainsMap.items():
@@ -43,11 +47,13 @@ class Trains:
                     value[0],
                     self.stationName2Id[value[2]],
                     self.stationName2Id[value[3]],
+                    value[2],
+                    value[3]
                 ])
             except Exception as e:
-                self.errorTrains.append(value);
+                self.errorTrains.append(value[1]);
                 print e
-
+        print self.errorTrains
 
 
         #生成通道
@@ -69,6 +75,20 @@ class Trains:
 
         print 'make channel:',len(trainChannel)
         self.trainChannel = trainChannel
+
+    def toDB(self):
+
+        cur = self.conn.cursor()
+        amap = Train12306Api()
+        for i in self.trainsKey:
+            baseT,trainPath = amap.getTrainInfo(i)
+            if len(baseT)==0:
+                continue
+
+            cur.execute("INSERT INTO train VALUES ( ?,?,?,?,?,?,?,?)", baseT)
+            cur.executemany("INSERT INTO train_station VALUES ( ?,?,?,?,?,?,?)", trainPath)
+            self.conn.commit()
+        cur.close()
 
     def to_csv(self,savePath,lists):
         csvfile = file(savePath, 'wb')
